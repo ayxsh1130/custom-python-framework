@@ -1,40 +1,25 @@
-from main import SlowAPI
+from main import SlowAPI, render_template
 
+app = SlowAPI(middlewares=[lambda req: None])
 
-def global_middleware(request):
-    print("this was executed before any route!")
+@app.get('/')
+def home(request, response):
+    response.json({'framework': 'SlowAPI', 'status': 'ok'})
 
-slowapi = SlowAPI(middlewares=[global_middleware])
+@app.get('/users/{user_id}')
+def get_user(request, response, user_id):
+    response.json({'user_id': user_id, 'query': request.queries})
 
+@app.post('/echo')
+def echo(request, response):
+    response.json(request.json(), 201)
 
-def local_middleware(request):
-    request.queries["channel"] = "youtube"
+@app.route('/items/{item_id}')
+class ItemController:
+    def get(self, request, response, item_id):
+        response.json({'id': item_id})
+    def delete(self, request, response, item_id):
+        response.json({'deleted': item_id})
 
-@slowapi.get("/users/{id}", middlewares=[local_middleware])
-def get_users(req, res, id):
-    print(req.queries)
-    res.send(f"User ID requested: {id}")
-
-# @slowapi.post("/users")
-# def post_users(req, res):
-#     res.send("HEY THERE", "201")
-
-@slowapi.route("/users")
-class User:
-    def __init__(self) -> None:
-        # You can have this!
-        pass
-    
-    def get(req, res):
-        print(req.queries)
-        res.send("HELLO I AM HERE")
-    
-    def post(req, res):
-        res.render("example", {"name": "Rivaan", "message": "Hello there!"})
-
-    def hello():
-        # Will ignore this helper function!
-        pass
-
-
-    
+if __name__ == '__main__':
+    app.run()

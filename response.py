@@ -1,39 +1,21 @@
-import re
-
+import json
+from http import HTTPStatus
 
 class Response:
-    def __init__(self, status_code="404 Missing Not Found", text="Route not found!") -> None:
-        self.status_code = status_code
-        self.text = text
-        self.headers = []
-    
+    def __init__(self, body=b'', status=200, headers=None):
+        self.body = body.encode() if isinstance(body, str) else body
+        self.status = status
+        self.headers = dict(headers or {'Content-Type': 'text/plain; charset=utf-8'})
+    def text(self, body, status=200):
+        self.body = body.encode('utf-8'); self.status = status
+        self.headers['Content-Type'] = 'text/plain; charset=utf-8'; return self
+    def html(self, body, status=200):
+        self.body = body.encode('utf-8'); self.status = status
+        self.headers['Content-Type'] = 'text/html; charset=utf-8'; return self
+    def json(self, data, status=200):
+        self.body = json.dumps(data).encode('utf-8'); self.status = status
+        self.headers['Content-Type'] = 'application/json'; return self
     def as_wsgi(self, start_response):
-        start_response(self.status_code, headers=self.headers)
-        return [self.text.encode()]
-    
-    def send(self, text="", status_code="200 OK"):
-        if isinstance(text, str):
-            self.text = text
-        else:
-            self.text = str(text)
-        
-        if isinstance(status_code, int):
-            self.status_code = str(status_code)
-        elif isinstance(status_code, str):
-            self.status_code = status_code
-        else:
-            raise ValueError("Status codes have to be either int or string")
-    
-    def render(self, template_name, context={}):
-        path = f"{template_name}.html"
-
-        with open(path) as fp:
-            template = fp.read()
-
-            for key, value in context.items():
-                # {{ key }}
-                template = re.sub(r'{{\s*' + re.escape(key) + r'\s*}}', str(value), template)
-        
-        self.headers.append(('Content-Type', "text/html"))
-        self.text = template
-        self.status_code = "200 OK"
+        self.headers['Content-Length'] = str(len(self.body))
+        start_response(f'{self.status} {HTTPStatus(self.status).phrase}', list(self.headers.items()))
+        return [self.body]
